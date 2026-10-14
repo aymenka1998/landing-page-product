@@ -1,0 +1,6 @@
+node_modules/
+.dashboard-auth.json
+.dashboard-auth.json.*.tmp
+.dashboard-https.json
+.dashboard-server.pfx
+public/local-dashboard-root.cer
