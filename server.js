@@ -71,7 +71,7 @@ function sameOrigin(req) {
   try { return new URL(origin).host === req.headers.host; } catch { return false; }
 }
 function setNoStore(res) { res.setHeader('Cache-Control', 'no-store'); }
-function sendLogin(res) { setNoStore(res); res.sendFile(path.join(__dirname, 'public', 'login.html')); }
+function sendLogin(res) { setNoStore(res); res.sendFile(path.join(__dirname, 'login.html')); }
 app.use((req, res, next) => {
   if (!privateIp(req.socket.remoteAddress)) return res.status(403).send('الوصول مسموح من الشبكة المحلية فقط.');
   next();
@@ -128,8 +128,8 @@ app.post('/api/auth/logout', (req, res) => {
   res.setHeader('Set-Cookie', `dashboard_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secure ? '; Secure' : ''}`);
   res.json({ success: true });
 });
-app.get('/', (req, res) => isAuthenticated(req) ? (setNoStore(res), res.sendFile(path.join(__dirname, 'public', 'index.html'))) : sendLogin(res));
-app.get('/index.html', (req, res) => isAuthenticated(req) ? res.sendFile(path.join(__dirname, 'public', 'index.html')) : res.redirect('/'));
+app.get('/', (req, res) => isAuthenticated(req) ? (setNoStore(res), res.sendFile(path.join(__dirname, 'dashboard.html'))) : sendLogin(res));
+app.get('/index.html', (req, res) => isAuthenticated(req) ? res.sendFile(path.join(__dirname, 'dashboard.html')) : res.redirect('/'));
 app.use('/api', (req, res, next) => {
   if (!isAuthenticated(req)) return res.status(401).json({ error: 'سجّل الدخول لمتابعة استخدام لوحة التحكم.' });
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && !sameOrigin(req)) return res.status(403).json({ error: 'تعذر التحقق من مصدر الطلب.' });
