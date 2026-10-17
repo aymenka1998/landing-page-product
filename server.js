@@ -10,6 +10,17 @@ const { spawn } = require('child_process');
 const runFile = promisify(execFile);
 const scrypt = promisify(crypto.scrypt);
 const multer = require('multer');
+const { generateProductDraft } = require('./lib/ai-assistant');
+try {
+  const localEnv = fs.readFileSync(path.join(__dirname, '.env'), 'utf8');
+  for (const line of localEnv.split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (!match || process.env[match[1]] !== undefined) continue;
+    let value = match[2];
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
+    process.env[match[1]] = value;
+  }
+} catch {}
 const app = express();
 const PORT = Number(process.env.PORT || 4000);
 const LANDING_PROJECT = path.resolve(__dirname, '..', 'product-landing');
@@ -18,7 +29,7 @@ const IMAGES_DIR = path.join(LANDING_PROJECT, 'public', 'images');
 const AUTH_PATH = path.join(__dirname, '.dashboard-auth.json');
 const TLS_CONFIG_PATH = path.join(__dirname, '.dashboard-https.json');
 const TLS_PFX_PATH = path.join(__dirname, '.dashboard-server.pfx');
-const ALLOWED_IMAGES = ['product-front.jpg', 'product-side.jpg', 'product-back.jpg', 'product-wrist.jpg'];
+const ALLOWED_IMAGES = ['product-front.jpg', 'product-side.jpg', 'product-back.jpg', 'product-wrist.jpg', 'product-detail.jpg', 'product-extra.jpg'];
 const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const attempts = new Map();
 let setupInProgress = false;
@@ -75,7 +86,7 @@ app.post('/api/auth/setup', async (req, res) => {
   if (!sameOrigin(req)) return res.status(403).json({ error: 'تعذر التحقق من مصدر الطلب.' });
   if (readAuth() || setupInProgress) return res.status(409).json({ error: 'تم إعداد حساب المسؤول مسبقاً.' });
   if (!firstSetupCode || !safeEqual(String(req.body?.setupCode || '').trim().toUpperCase(), firstSetupCode)) return res.status(403).json({ error: 'رمز الإعداد غير صحيح. خذه من نافذة تشغيل اللوحة على الحاسوب.' });
-  const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+  const username = typeof req.body?.username === 'string' && req.body.username.trim() ? req.body.username.trim() : auth.username;
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
   if (username.length < 3 || username.length > 64 || password.length < 12 || password.length > 256) return res.status(400).json({ error: 'اسم المستخدم يجب أن يتكون من 3 أحرف على الأقل وكلمة المرور من 12 حرفاً على الأقل.' });
   setupInProgress = true;
@@ -105,7 +116,7 @@ app.post('/api/auth/login', async (req, res) => {
     record.count += 1;
     if (record.count >= 5) { record.count = 0; record.until = Date.now() + 15 * 60 * 1000; }
     attempts.set(ip, record);
-    return res.status(401).json({ error: 'اسم المستخدم أو كلمة المرور غير صحيح.' });
+    return res.status(401).json({ error: 'كلمة المرور غير صحيحة.' });
   }
   attempts.delete(ip);
   setSession(res, req, username, auth.sessionSecret);
@@ -135,7 +146,7 @@ app.get('/api/product', (_req, res) => {
 });
 app.put('/api/product', (req, res) => {
   const data = req.body;
-  if (!data || typeof data.name !== 'string' || !data.name.trim() || !Number.isFinite(Number(data.price)) || Number(data.price) <= 0 || !Number.isFinite(Number(data.oldPrice)) || Number(data.oldPrice) <= 0 || !Number.isInteger(Number(data.maxQty)) || Number(data.maxQty) < 1 || Number(data.maxQty) > 100) return res.status(400).json({ error: 'تحقق من الاسم والأسعار والحد الأقصى للكمية (1 إلى 100).' });
+  if (!data || typeof data.name !== 'string' || !data.name.trim() || !Number.isFinite(Number(data.price)) || Number(data.price) <= 0 || !Number.isFinite(Number(data.oldPrice)) || Number(data.oldPrice) <= 0 || !Number.isInteger(Number(data.maxQty)) || Number(data.maxQty) < 1 || Number(data.maxQty) > 100 || !Array.isArray(data.images) || data.images.length < 2 || data.images.length > 6 || data.images.some((image) => !image || typeof image.src !== 'string' || !image.src.trim())) return res.status(400).json({ error: 'تحقق من بيانات المنتج وتأكد من وجود صورتين إلى 6 صور مرفوعة.' });
   const temp = `${CONFIG_PATH}.${process.pid}.tmp`;
   try {
     fs.copyFileSync(CONFIG_PATH, path.join(path.dirname(CONFIG_PATH), 'product.backup.json'));
@@ -156,6 +167,27 @@ app.post('/api/upload', (req, res) => upload.single('image')(req, res, (err) => 
   fs.writeFileSync(temp, JSON.stringify(data, null, 2), 'utf8'); fs.renameSync(temp, CONFIG_PATH);
   res.json({ success: true, path: `/images/${ALLOWED_IMAGES[slot]}` });
 }));
+app.delete('/api/image', (req, res) => {
+  const index = Number(req.body?.index);
+  let data;
+  try { data = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); }
+  catch { return res.status(500).json({ error: 'تعذرت قراءة بيانات المنتج.' }); }
+  data.images = Array.isArray(data.images) ? data.images : [];
+  if (!Number.isInteger(index) || index < 0 || index >= data.images.length) return res.status(400).json({ error: 'رقم الصورة غير صالح.' });
+  if (data.images.length <= 2) return res.status(400).json({ error: 'يجب إبقاء صورتين على الأقل.' });
+  const [removed] = data.images.splice(index, 1);
+  const temp = `${CONFIG_PATH}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(temp, JSON.stringify(data, null, 2), 'utf8'); fs.renameSync(temp, CONFIG_PATH);
+    const filename = path.basename(String(removed?.src || ''));
+    if (ALLOWED_IMAGES.includes(filename)) { const target = path.resolve(IMAGES_DIR, filename); if (target.startsWith(`${path.resolve(IMAGES_DIR)}${path.sep}`) && fs.existsSync(target)) fs.unlinkSync(target); }
+    return res.json({ success: true });
+  } catch { if (fs.existsSync(temp)) fs.unlinkSync(temp); return res.status(500).json({ error: 'تعذر حذف الصورة.' }); }
+});
+app.post('/api/assistant', async (req, res) => {
+  try { res.json({ success: true, draft: await generateProductDraft(req.body) }); }
+  catch (error) { res.status(error.status || 502).json({ error: error.message || 'تعذر الاتصال بالمساعد.' }); }
+});
 app.post('/api/publish', async (_req, res) => {
   const git = (args) => runFile('git', args, { cwd: LANDING_PROJECT, windowsHide: true });
   try {

@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "api/**/*.js": { "maxDuration": 10, "includeFiles": "public/**" },
+    "api/assistant.js": { "maxDuration": 30, "includeFiles": "public/**" }
+  },
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/", "destination": "/api/page" },
+    { "source": "/index.html", "destination": "/api/page" }
+  ]
+}

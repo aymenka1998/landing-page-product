@@ -1,4 +1,7 @@
 node_modules/
+.env*
+!.env.example
+.vercel/
 .dashboard-auth.json
 .dashboard-auth.json.*.tmp
 .dashboard-https.json
