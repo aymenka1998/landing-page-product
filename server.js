@@ -135,6 +135,19 @@ app.use('/api', (req, res, next) => {
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && !sameOrigin(req)) return res.status(403).json({ error: 'تعذر التحقق من مصدر الطلب.' });
   next();
 });
+const { callSheet } = require('./lib/orders');
+app.get('/api/orders', async (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  try { res.json(await callSheet('list')); }
+  catch (error) { res.status(503).json({ error: error.message || 'تعذر تحميل الطلبات.' }); }
+});
+app.patch('/api/orders', async (req, res) => {
+  try {
+    const { rowNumber, status } = req.body || {};
+    if (!Number.isInteger(Number(rowNumber)) || Number(rowNumber) < 2 || typeof status !== 'string' || status.length > 40) return res.status(400).json({ error: 'رقم الطلب أو حالته غير صالح.' });
+    res.json(await callSheet('update', { rowNumber: Number(rowNumber), status }));
+  } catch (error) { res.status(503).json({ error: error.message || 'تعذر تحديث حالة الطلب.' }); }
+});
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => { fs.mkdirSync(IMAGES_DIR, { recursive: true }); cb(null, IMAGES_DIR); },
   filename: (req, _file, cb) => { const index = Number(req.body.slot); if (!Number.isInteger(index) || index < 0 || index >= ALLOWED_IMAGES.length) return cb(new Error('رقم خانة الصورة غير صالح')); cb(null, ALLOWED_IMAGES[index]); }
@@ -191,12 +204,13 @@ app.post('/api/assistant', async (req, res) => {
 app.post('/api/publish', async (_req, res) => {
   const git = (args) => runFile('git', args, { cwd: LANDING_PROJECT, windowsHide: true });
   try {
-    const { stdout: status } = await git(['status', '--porcelain']);
-    if (!status.trim()) return res.json({ success: false, message: 'لا توجد تغييرات للنشر' });
+    const publishPaths = ['src/config/product.json', 'src/config/getProduct.ts', 'public/images'];
+    const { stdout: status } = await git(['status', '--porcelain', '--', ...publishPaths]);
+    if (!status.trim()) return res.json({ success: false, message: 'لا توجد تغييرات في بيانات المنتج أو الصور للنشر.' });
     const { stdout: remotes } = await git(['remote']);
     if (!remotes.trim()) return res.status(400).json({ error: 'لا يوجد remote مربوط بمستودع صفحة الهبوط.' });
-    await git(['add', 'src/config/product.json', 'public/images']);
-    await git(['commit', '-m', `تحديث المنتج من لوحة التحكم - ${new Date().toLocaleDateString('sv-SE')}`]);
+    await git(['add', '--', ...publishPaths]);
+    await git(['commit', '--only', '-m', `تحديث المنتج من لوحة التحكم - ${new Date().toLocaleDateString('sv-SE')}`, '--', ...publishPaths]);
     await git(['push']);
     res.json({ success: true, message: 'سيظهر التحديث على موقعك خلال 1-2 دقيقة.' });
   } catch (error) {

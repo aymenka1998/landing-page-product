@@ -11,7 +11,7 @@
 1. أبقِ مجلدي `product-landing` و`product-dashboard` متجاورين.
 2. ثبّت Node.js LTS وGit for Windows. أثناء تثبيت Git اختر إتاحته لبرامج أخرى (PATH).
 3. ثبّت GitHub Desktop وسجّل الدخول. أضف مجلد `product-landing` كمستودع محلي وانشره إلى GitHub من التطبيق.
-4. سجّل الدخول إلى Vercel، واستورد المستودع من GitHub. أضف `GOOGLE_SHEET_WEBHOOK` إذا رغبت بتسجيل الطلبات في Google Sheets، ثم انشر الموقع.
+4. سجّل الدخول إلى Vercel، واستورد المستودع من GitHub. لإظهار الطلبات داخل اللوحة، اتبع [إعداد Google Sheets للطلبات](GOOGLE_SHEETS_ORDERS_SETUP.md) وأضف متغيري الربط في Vercel، ثم انشر الموقع.
 5. انقر مرتين على `setup.bat`. يثبت الاعتمادات وينشئ شهادة HTTPS محلية للحاسوب.
 6. انقر مرتين على `start-product.bat`. تظهر نافذة تشغيل فيها رمز إعداد أول حساب. افتح `https://localhost:4000` على الحاسوب، وأنشئ اسم المستخدم وكلمة المرور باستخدام الرمز. كلمة المرور 12 حرفاً على الأقل.
 

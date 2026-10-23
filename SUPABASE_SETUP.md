@@ -16,8 +16,9 @@
 - `ADMIN_EMAIL` — نفس بريد مستخدم المسؤول الذي أنشأته في Supabase؛ اجعل Visibility = `config`.
 - `GEMINI_API_KEY` — مفتاح Google AI Studio لتشغيل المساعد الذكي؛ اجعل Visibility = `secret` ولا تضعه في مشروع صفحة المنتج.
 - `GEMINI_MODEL` — اختياري؛ الافتراضي `gemini-3.1-flash-lite`.
+- `GEMINI_FALLBACK_MODEL` — اختياري؛ الافتراضي `gemini-3.5-flash-lite`. يستخدم تلقائيًا إذا أعاد النموذج الأساسي خطأ انشغال مؤقتًا (503).
 
-في مشروع **صفحة المنتج** أضف `NEXT_PUBLIC_SUPABASE_URL` و`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` فقط، واجعل Visibility = `config` لكليهما. لا تضف المفتاح السري لهذا المشروع.
+في مشروع **صفحة المنتج**، إذا كنت تريد أن تقرأ الصفحة التغييرات مباشرة من لوحة Vercel، اضبط `PRODUCT_CONFIG_SOURCE=supabase` وأضف `NEXT_PUBLIC_SUPABASE_URL` و`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` فقط، واجعل Visibility = `config` لكليهما. لا تضف المفتاح السري لهذا المشروع. إذا كنت تنشر من اللوحة المحلية عبر Git، اترك `PRODUCT_CONFIG_SOURCE` غير مضبوط حتى تستخدم صفحة المنتج بيانات `product.json` المنشورة.
 
 ## تسجيل الدخول من Vercel
 
