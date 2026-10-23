@@ -10,11 +10,24 @@ function doGet(e) {
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return json_({ success: true, orders: [] });
   const headers = values[0].map(String);
+  const hasArabicHeader = values.length > 2 && isArabicHeaderRow_(values[1]);
+  const displayHeaders = hasArabicHeader ? values[1].map(String) : [];
+  const idColumn = headers.indexOf('orderId');
   const orders = values.slice(1).map((row, index) => {
-    const order = { rowNumber: index + 2 };
-    headers.forEach((header, i) => { order[header] = row[i] instanceof Date ? row[i].toISOString() : row[i]; });
+    const rowNumber = index + 2;
+    if (isArabicHeaderRow_(row)) return null;
+    const isLegacyRow = hasArabicHeader && rowNumber > 2 && !isUuid_(row[idColumn]);
+    const sourceHeaders = isLegacyRow ? displayHeaders : headers;
+    const order = { rowNumber };
+    sourceHeaders.forEach((header, i) => {
+      const key = canonicalField_(header) || header;
+      const value = row[i] instanceof Date ? row[i].toISOString() : row[i];
+      if (value !== '' && value != null) order[key] = value;
+    });
+    if (isLegacyRow) order.legacy = true;
+    if (row[headers.indexOf('dashboardStatus') ] && isLegacyRow) order.status = row[headers.indexOf('dashboardStatus')];
     return order;
-  }).filter(order => Object.values(order).some(value => value !== '' && value != null));
+  }).filter(order => order && Object.values(order).some(value => value !== '' && value != null));
   return json_({ success: true, orders });
 }
 
@@ -26,9 +39,13 @@ function doPost(e) {
     if (!authorized_(data.token || e.parameter.token)) return json_({ success: false, error: 'غير مصرح.' });
     const row = Number(data.rowNumber);
     if (!Number.isInteger(row) || row < 2) return json_({ success: false, error: 'رقم الصف غير صالح.' });
-    const headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0].map(String);
-    let statusColumn = headers.indexOf('status') + 1;
-    if (!statusColumn) { statusColumn = headers.length + 1; sheet.getRange(1, statusColumn).setValue('status'); }
+    const allValues = sheet.getDataRange().getValues();
+    const headers = allValues[0].map(String);
+    const idColumn = headers.indexOf('orderId');
+    const isLegacyRow = allValues.length > 2 && isArabicHeaderRow_(allValues[1]) && !isUuid_(allValues[row - 1]?.[idColumn]);
+    const statusHeader = isLegacyRow ? 'dashboardStatus' : 'status';
+    let statusColumn = headers.indexOf(statusHeader) + 1;
+    if (!statusColumn) { statusColumn = headers.length + 1; sheet.getRange(1, statusColumn).setValue(statusHeader); }
     sheet.getRange(row, statusColumn).setValue(String(data.status || ''));
     return json_({ success: true });
   }
@@ -36,12 +53,50 @@ function doPost(e) {
   const headersRange = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1));
   let headers = headersRange.getValues()[0].map(String).filter(Boolean);
   if (!headers.length) { headers = ORDERS_HEADERS.slice(); sheet.getRange(1, 1, 1, headers.length).setValues([headers]); }
-  const mapped = { ...order, timestamp: order.timestamp || new Date().toISOString(), orderId: order.orderId || order.id || Utilities.getUuid(), status: order.status || 'جديد' };
-  const extras = Object.keys(mapped).filter(key => !['action', 'token'].includes(key) && !headers.includes(key));
-  if (extras.length) { const start = headers.length + 1; sheet.getRange(1, start, 1, extras.length).setValues([extras]); headers = headers.concat(extras); }
-  const row = headers.map(header => header === 'rawJson' ? JSON.stringify(order) : (mapped[header] ?? ''));
+  const mapped = normalizeOrder_(order);
+  const row = headers.map(header => header === 'rawJson' ? JSON.stringify(order) : (mapped[header] ?? order[header] ?? ''));
   sheet.appendRow(row);
   return json_({ success: true });
+}
+
+function normalizeOrder_(order) {
+  const normalized = {};
+  Object.keys(order || {}).forEach(key => {
+    const field = canonicalField_(key);
+    if (field && order[key] !== '' && order[key] != null && normalized[field] === undefined) normalized[field] = order[key];
+  });
+  normalized.timestamp = normalized.timestamp || new Date().toISOString();
+  normalized.orderId = normalized.orderId || Utilities.getUuid();
+  normalized.status = normalized.status || 'جديد';
+  return normalized;
+}
+
+function canonicalField_(header) {
+  const key = String(header || '').trim().toLowerCase();
+  const aliases = {
+    timestamp: ['timestamp', 'date', 'createdat', 'التاريخ', 'تاريخ الطلب'],
+    orderId: ['orderid', 'id', 'رقم الطلب', 'معرف الطلب'],
+    status: ['status', 'الحالة', 'حالة الطلب'],
+    customerName: ['customername', 'fullname', 'name', 'customer', 'الاسم', 'اسم العميل', 'الزبون'],
+    phone: ['phone', 'phonenumber', 'mobile', 'الهاتف', 'رقم الهاتف', 'رقم الهاتف/واتساب'],
+    product: ['product', 'productname', 'المنتج', 'اسم المنتج'],
+    quantity: ['quantity', 'qty', 'الكمية'],
+    city: ['city', 'province', 'المدينة', 'الولاية'],
+    address: ['address', 'العنوان'],
+    total: ['total', 'grandtotal', 'ordertotal', 'الإجمالي', 'المجموع', 'السعر الإجمالي'],
+    notes: ['notes', 'note', 'ملاحظات'],
+  };
+  for (const field in aliases) if (aliases[field].includes(key)) return field;
+  return '';
+}
+
+function isArabicHeaderRow_(row) {
+  const cells = row.map(value => String(value || '').trim());
+  return cells.includes('التاريخ') && cells.includes('الاسم') && cells.includes('الهاتف');
+}
+
+function isUuid_(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || '').trim());
 }
 
 function authorized_(token) {
