@@ -1,4 +1,5 @@
 const { getAdmin, rest, sameOrigin } = require('../lib/supabase');
+const { validPixelSettings } = require('../lib/pixel-settings');
 
 module.exports = async function handler(req, res) {
   const admin = await getAdmin(req, res).catch(() => null);
@@ -12,7 +13,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'PUT') return res.status(405).end();
   if (!sameOrigin(req)) return res.status(403).json({ error: 'تعذر التحقق من مصدر الطلب.' });
   const data = req.body;
-  if (!data || typeof data.name !== 'string' || !data.name.trim() || !Number.isFinite(Number(data.price)) || Number(data.price) <= 0 || !Number.isFinite(Number(data.oldPrice)) || Number(data.oldPrice) <= 0 || !Array.isArray(data.cities) || !Array.isArray(data.images) || data.images.length < 2 || data.images.length > 6 || data.images.some((image) => !image || typeof image.src !== 'string' || !image.src.trim())) return res.status(400).json({ error: 'تحقق من بيانات المنتج وتأكد من وجود صورتين إلى 6 صور مرفوعة.' });
+  if (!data || typeof data.name !== 'string' || !data.name.trim() || !Number.isFinite(Number(data.price)) || Number(data.price) <= 0 || !Number.isFinite(Number(data.oldPrice)) || Number(data.oldPrice) <= 0 || !Array.isArray(data.cities) || !Array.isArray(data.images) || data.images.length < 2 || data.images.length > 6 || data.images.some((image) => !image || typeof image.src !== 'string' || !image.src.trim()) || !validPixelSettings(data.tracking)) return res.status(400).json({ error: 'تحقق من بيانات المنتج ومعرّفات البيكسل.' });
   const response = await rest('product_settings?on_conflict=id', {
     method: 'POST',
     headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },

@@ -11,6 +11,7 @@ const runFile = promisify(execFile);
 const scrypt = promisify(crypto.scrypt);
 const multer = require('multer');
 const { generateProductDraft } = require('./lib/ai-assistant');
+const { validPixelSettings } = require('./lib/pixel-settings');
 try {
   const localEnv = fs.readFileSync(path.join(__dirname, '.env'), 'utf8');
   for (const line of localEnv.split(/\r?\n/)) {
@@ -159,7 +160,7 @@ app.get('/api/product', (_req, res) => {
 });
 app.put('/api/product', (req, res) => {
   const data = req.body;
-  if (!data || typeof data.name !== 'string' || !data.name.trim() || !Number.isFinite(Number(data.price)) || Number(data.price) <= 0 || !Number.isFinite(Number(data.oldPrice)) || Number(data.oldPrice) <= 0 || !Number.isInteger(Number(data.maxQty)) || Number(data.maxQty) < 1 || Number(data.maxQty) > 100 || !Array.isArray(data.images) || data.images.length < 2 || data.images.length > 6 || data.images.some((image) => !image || typeof image.src !== 'string' || !image.src.trim())) return res.status(400).json({ error: 'تحقق من بيانات المنتج وتأكد من وجود صورتين إلى 6 صور مرفوعة.' });
+  if (!data || typeof data.name !== 'string' || !data.name.trim() || !Number.isFinite(Number(data.price)) || Number(data.price) <= 0 || !Number.isFinite(Number(data.oldPrice)) || Number(data.oldPrice) <= 0 || !Number.isInteger(Number(data.maxQty)) || Number(data.maxQty) < 1 || Number(data.maxQty) > 100 || !Array.isArray(data.images) || data.images.length < 2 || data.images.length > 6 || data.images.some((image) => !image || typeof image.src !== 'string' || !image.src.trim()) || !validPixelSettings(data.tracking)) return res.status(400).json({ error: 'تحقق من بيانات المنتج ومعرّفات البيكسل.' });
   const temp = `${CONFIG_PATH}.${process.pid}.tmp`;
   try {
     fs.copyFileSync(CONFIG_PATH, path.join(path.dirname(CONFIG_PATH), 'product.backup.json'));

@@ -12,7 +12,7 @@
 4. أنشئ Google Sheet للعميل، وسمِّ تبويب الطلبات `Orders`. أضف Apps Script من `google-apps-script-orders.js`، واضبط Script Properties `ORDERS_ACCESS_TOKEN` و`ORDERS_SHEET_NAME=Orders`، ثم انشره Web app.
 5. أضف `GOOGLE_SHEET_WEBHOOK` و`GOOGLE_SHEET_ACCESS_TOKEN` إلى Vercel، مع وضع الرمز نفسه في Script Properties، ثم أعد النشر.
 6. أضف `GEMINI_API_KEY` فقط إذا اختار العميل تفعيل المساعد الذكي. هذه الميزة اختيارية.
-7. إذا كان العميل سيعلن، يأخذ Pixel ID من حسابه الإعلاني. لا تشارك Pixel ID بين العملاء. دعم Meta وTikTok غير مهيأ تلقائيًا في النسخة الحالية.
+7. إذا أعلن العميل، يدخل معرّفات Meta Pixel وTikTok Pixel الخاصة به في قسم **التتبع الإعلاني** في اللوحة. اضبط `PRODUCT_CONFIG_SOURCE=supabase` في Vercel لصفحة الهبوط حتى تقرأ إعداداته المحفوظة. لا تشارك معرّفات التتبع بين العملاء.
 8. نفّذ طلبًا تجريبيًا من هاتف، وتأكد من وصوله إلى الورقة واللوحة، ثم غيّر حالته، وارفع صورة، وعدّل بيانات المنتج، وتأكد من ظهورها على صفحة الهبوط.
 
 ## ما تجهزه قبل عرض الحزمة
