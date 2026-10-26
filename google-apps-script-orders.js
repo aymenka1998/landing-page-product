@@ -65,17 +65,54 @@ function doPost(e) {
   if (data.action === 'update') return updateOrderStatus_(sheet, data, e);
 
   const incoming = data.order || data.data || data;
-  ensureHeaders_(sheet);
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
   const order = normalizeOrder_(incoming);
+  // Honeypot fields are optional for older forms. If a form sends one and a bot
+  // fills it, quietly accept the request without putting it in the real order list.
+  if (['website', 'company', 'fax', 'middleName'].some(key => String(incoming?.[key] || '').trim())) {
+    return json_({ success: true, filtered: true });
+  }
+
+  const phone = String(order.phone || '').replace(/[\s()-]/g, '');
+  const name = String(order.customerName || '').trim();
+  const quantity = Number(order.quantity || incoming?.qty || 1);
+  if (!name || name.length > 120 || !/^(?:0[567]\d{8}|\+?213[567]\d{8})$/.test(phone) ||
+      !Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
+    return json_({ success: false, error: 'بيانات الطلب غير مكتملة أو رقم الهاتف/الكمية غير صالح.' });
+  }
+  order.phone = phone;
+  order.customerName = name;
+  order.quantity = quantity;
+
+  // Serialize duplicate checks so two simultaneous submissions cannot both pass.
+  const fingerprint = duplicateFingerprint_(order);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(5000);
+  try {
+    const cache = CacheService.getScriptCache();
+    if (cache.get(`order:${fingerprint}`)) {
+      return json_({ success: false, duplicate: true, error: 'تم استلام هذا الطلب مؤخراً.' });
+    }
+    ensureHeaders_(sheet);
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
   const row = headers.map(header => {
     if (header === 'rawJson') return JSON.stringify(incoming);
     const canonical = canonicalField_(header);
     return (canonical && order[canonical] !== undefined) ? order[canonical] : (incoming[header] ?? '');
   });
 
-  sheet.appendRow(row);
-  return json_({ success: true });
+    sheet.appendRow(row);
+    cache.put(`order:${fingerprint}`, '1', 600);
+    return json_({ success: true });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function duplicateFingerprint_(order) {
+  const identity = [order.phone, order.customerName.toLowerCase(), order.product || '',
+    order.quantity, order.city || '', order.address || ''].join('|').toLowerCase();
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, identity);
+  return Utilities.base64EncodeWebSafe(digest).replace(/=+$/, '');
 }
 
 function updateOrderStatus_(sheet, data, e) {
