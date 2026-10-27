@@ -6,7 +6,6 @@
 2. شغّل بعدها `supabase/seed_product.sql` لاستيراد بيانات المنتج الحالية.
 3. من Authentication → Users أنشئ مستخدم المسؤول ببريده وكلمة مروره. عطّل التسجيل العام في إعدادات Authentication؛ تسجيل الدخول مخصص لهذا المستخدم.
 
-يتضمن `schema.sql` جدول `newsletter_subscribers`. بعد تشغيله، تظهر العناوين في Supabase → Table Editor → `newsletter_subscribers`، ويمكنك تصديرها من هناك عند تجهيز حملة. إعادة تشغيل ملف المخطط تنشئ الجدول عند غيابه ولا تحذف بياناته.
 
 ## متغيرات Vercel
 
@@ -20,7 +19,7 @@
 - `GEMINI_MODEL` — اختياري؛ الافتراضي `gemini-3.1-flash-lite`.
 - `GEMINI_FALLBACK_MODEL` — اختياري؛ الافتراضي `gemini-3.5-flash-lite`. يستخدم تلقائيًا إذا أعاد النموذج الأساسي خطأ انشغال مؤقتًا (503).
 
-في مشروع **صفحة المنتج** أضف `NEXT_PUBLIC_SUPABASE_URL` و`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`، واجعل Visibility = `config` لكليهما؛ نموذج النشرة يحتاجهما لحفظ الاشتراكات. لا تضف المفتاح السري لهذا المشروع. وإذا كنت تريد أن تقرأ الصفحة تغييرات إعدادات المنتج مباشرة من Supabase، اضبط أيضًا `PRODUCT_CONFIG_SOURCE=supabase`. إذا كنت تنشر من اللوحة المحلية عبر Git، اترك هذا المتغير غير مضبوط حتى تستخدم صفحة المنتج بيانات `product.json` المنشورة.
+في مشروع **صفحة المنتج** أضف `NEXT_PUBLIC_SUPABASE_URL` و`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`، واجعل Visibility = `config` لكليهما. لا تضف المفتاح السري لهذا المشروع. وإذا كنت تريد أن تقرأ الصفحة تغييرات إعدادات المنتج مباشرة من Supabase، اضبط أيضًا `PRODUCT_CONFIG_SOURCE=supabase`. إذا كنت تنشر من اللوحة المحلية عبر Git، اترك هذا المتغير غير مضبوط حتى تستخدم صفحة المنتج بيانات `product.json` المنشورة.
 
 ## تسجيل الدخول من Vercel
 
